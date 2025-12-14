@@ -1,6 +1,12 @@
 # REC-INF
 **Trabajo final – Recuperación de la Información**
 
-<div align="center">
 ![Java](https://img.shields.io/badge/Java-ED8B00?style=for-the-badge&logo=java&logoColor=white)
-</div>
+
+---
+
+## 🔍 Descripción del proyecto
+
+Este es un sistema de recuperación de información a pequeña escala.
+
+Actualmente está en desarrollo.
