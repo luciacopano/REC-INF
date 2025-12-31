@@ -4,7 +4,7 @@ import java.nio.file.*;
 
 public class Main{
     // Indice invertido
-    static class IndiceInvertido{
+    static class InfoTermino{
         double idf = 0.0;
         Map<String, Double> documentos = new HashMap<>(); // Mapa de documento a tf-idf
     }
@@ -72,13 +72,13 @@ public class Main{
                 // Procesar el documento
                 String texto = Files.readString(archivo);
                 String textoLimpio = limpiarTexto(texto);   
-                String[] terminos = dividirEnTerminos(textoLimpio);
+                List<String> terminos = dividirEnTerminos(textoLimpio);
                 List<String> terminosFiltrados = filtrarTerminos(terminos, stopwords);  // Filtro términos + Stemming
                 
                 // Calcular TF
                 Map<String, Integer> frecuencias = contarFrecuencias(terminosFiltrados);
                 for(Map.Entry<String, Integer> entrada : frecuencias.entrySet()){
-                    String termino = entrada getKey();
+                    String termino = entrada.getKey();
                     int frec = entrada.getValue();
                     double tf = calcularTF(frec);
 
@@ -103,7 +103,7 @@ public class Main{
         // Guardar ficheros
         System.out.println("GUARDANDO FICHEROS...");
         guardarIndice(indiceInvertido, indicePath);
-        guardarLongitudes(longitudesDocs, longitudesPath);
+        guardarLongitud(longitudesDocs, longitudesPath);
 
         System.out.println("Terminos unicos: " + indiceInvertido.size());
         System.out.println("Documentos: " + totalDocs);
@@ -121,13 +121,13 @@ public class Main{
     }
 
     // Dividimos el texto en terminos
-    private static List<String> dividirenTerminos(String texto){
+    private static List<String> dividirEnTerminos(String texto){
         return Arrays.asList(texto.split(" "));
     }
 
     private static List<String> filtrarTerminos(List<String> terminos, Set<String> stopwords){
         List<String> resultado = new ArrayList<>();
-        for(Dtring termino : terminos){
+        for(String termino : terminos){
             if(termino.length() < 3) continue;
 
             String stem = aplicarStemming(termino);
@@ -154,6 +154,7 @@ public class Main{
         for(String termino : terminos){
             frecuencias.put(termino, frecuencias.getOrDefault(termino, 0) + 1);
         }
+        return frecuencias;
     }
 
     // Calcular TF
@@ -161,5 +162,72 @@ public class Main{
         return 1 + Math.log(frecuencia) / Math.log(2);
     }
 
-    
+    // Calcular IDF y longitudes
+    private static Map<String, Double> calcularIDFyLongitudes(Map<String, InfoTermino> indice, int totalDocs){
+        Map<String, Double> longitudes = new HashMap<>();
+
+        for(Map.Entry<String, InfoTermino> entrada : indice.entrySet()){
+            InfoTermino info = entrada.getValue();
+
+            // IDF = log(N / df)
+            int df = info.documentos.size();
+            double idf = Math.log((double) totalDocs / df);
+            info.idf = idf;
+
+            //Longitud de documentos
+            for(Map.Entry<String, Double> posting : info.documentos.entrySet()){
+                String docId = posting.getKey();
+                double tf = posting.getValue();
+                double peso = tf * idf;
+                double suma = longitudes.getOrDefault(docId, 0.0);
+                longitudes.put(docId, suma + peso * peso);
+            }
+        }
+
+        // Raiz cuadrada final
+        longitudes.replaceAll((docId, suma) -> Math.sqrt(suma));
+        return longitudes;
+    }
+
+
+    // Cargar stopwords
+    private static Set<String> cargarStopwords(String ruta) throws IOException{
+        Set<String> stopwords = new HashSet<>();
+        Files.lines(Paths.get(ruta))
+            .map(String::trim)
+            .filter(s -> !s.isEmpty())
+            .forEach(stopwords::add);
+        return stopwords;
+    }
+
+    // Guardar indice
+    private static void guardarIndice(Map<String, InfoTermino> indice, String ruta) throws IOException{
+        Files.createDirectories(Paths.get(ruta).getParent());
+        try(BufferedWriter writer = Files.newBufferedWriter(Paths.get(ruta))){
+            for(Map.Entry<String, InfoTermino> entrada : indice.entrySet()){
+                String termino = entrada.getKey();
+                InfoTermino info = entrada.getValue();
+                StringBuilder linea = new StringBuilder(termino + " | " + String.format("%.3f", info.idf) + " | ");
+                for(Map.Entry<String, Double> posting : info.documentos.entrySet()){
+                    String docId = posting.getKey();
+                    double tf = posting.getValue();
+                    double peso = tf * info.idf;
+                    linea.append("(").append(docId).append(" ").append(String.format("%.3f", peso)).append(") ");
+                }
+                writer.write(linea.toString().trim());
+                writer.newLine();
+            }
+        }
+    }
+
+    // Guardar longitudes
+    private static void guardarLongitud(Map<String, Double> longitudes, String ruta) throws IOException{
+        Files.createDirectories(Paths.get(ruta).getParent());
+        try(BufferedWriter writer = Files.newBufferedWriter(Paths.get(ruta))){
+            for(Map.Entry<String, Double> entrada : longitudes.entrySet()){
+                writer.write(entrada.getKey() + " " + String.format("%.3f", entrada.getValue()));
+                writer.newLine();
+            }
+        }
+    }
 }
