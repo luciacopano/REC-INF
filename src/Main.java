@@ -110,5 +110,56 @@ public class Main{
     }
 
     // FUNCIONES AUXILIARES
+
+    private static String limpiarTexto(String texto){
+        texto = texto.toLowerCase();    // normalizamos
+        texto = texto.replaceAll("[^a-z0-9\\s-]", " "); // eliminar puntuacion
+        texto = texto.replaceAll("\\b[0-9]+\\b", " "); // eliminar numeros
+        texto = texto.replaceAll("\\s+", " "); // eliminar espacios multiples
+        texto = texto.replaceAll("-+ | -+", " "); // eliminar guiones
+        return texto;
+    }
+
+    // Dividimos el texto en terminos
+    private static List<String> dividirenTerminos(String texto){
+        return Arrays.asList(texto.split(" "));
+    }
+
+    private static List<String> filtrarTerminos(List<String> terminos, Set<String> stopwords){
+        List<String> resultado = new ArrayList<>();
+        for(Dtring termino : terminos){
+            if(termino.length() < 3) continue;
+
+            String stem = aplicarStemming(termino);
+
+            if(stopwords.contains(stem)) continue;
+            resultado.add(stem);
+        }
+        return resultado;
+    }
+
+    // Stemming
+    private static String aplicarStemming(String termino){
+        if(termino.endsWith("s")) termino = termino.substring(0, termino.length() - 1);
+        if(termino.endsWith("ed")) termino = termino.substring(0, termino.length() - 2);
+        if(termino.endsWith("es")) termino = termino.substring(0, termino.length() - 2);
+        if(termino.endsWith("ing")) termino = termino.substring(0, termino.length() - 3);
+        if(termino.endsWith("ies")) termino = termino.substring(0, termino.length() - 3) + "y";
+        return termino;
+    }
+
+    // Contar frecuencias
+    private static Map<String, Integer> contarFrecuencias(List<String> terminos){
+        Map<String, Integer> frecuencias = new HashMap<>();
+        for(String termino : terminos){
+            frecuencias.put(termino, frecuencias.getOrDefault(termino, 0) + 1);
+        }
+    }
+
+    // Calcular TF
+    private static double calcularTF(int frecuencia){
+        return 1 + Math.log(frecuencia) / Math.log(2);
+    }
+
     
 }
