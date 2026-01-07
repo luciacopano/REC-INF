@@ -3,6 +3,16 @@ import java.util.*;
 import java.nio.file.*;
 
 public class Busqueda {
+    //crea la estructura que contendrá la información del docmento
+    private static class ResultadoDocumento {
+        String nombreDocumento;
+        double puntuacion;
+
+        ResultadoDocumento(String nombreDocumento, double puntuacion) {
+            this.nombreDocumento = nombreDocumento;
+            this.puntuacion = puntuacion;
+        }
+    }
     //método para convertir txt a json
     //comienza el motor de búsqueda interactivo
     public static void start(String[] args) throws IOException{
