@@ -57,21 +57,21 @@ public class Busqueda {
     private void busquedaTermino() {
         Scanner scanner = new Scanner(System.in);
         System.out.print("Introduce el término a buscar: ");
-        String query = scanner.nextLine().trim();
+        String consulta = scanner.nextLine().trim();
     }
 
     //método para la búsqueda con operadores
     private void busquedaOperadores() {
         Scanner scanner = new Scanner(System.in);
         System.out.print("Introduce la consulta con operadores (and/or): ");
-        String query = scanner.nextLine().trim();
+        String consulta = scanner.nextLine().trim();
     }
 
     //método para la búsqueda de una frase
     private void busquedaFrase() {
         Scanner scanner = new Scanner(System.in);
         System.out.print("Introduce la frase a buscar (ej: \"índice invertido\"): ");
-        String query = scanner.nextLine().trim();
+        String consulta = scanner.nextLine().trim();
     }
 
 }
