@@ -74,16 +74,36 @@ public class Busqueda {
         String consulta = scanner.nextLine().trim();
     }
 
+    //método para procesar un sólo término
     private String procesarTermino(String consulta){
         System.out.print("Consulta original ");
-        return consulta;
+        String termino = consulta;
+        termino = termino.toLowerCase();
+        termino = termino.replaceAll("[^a-z0-9\\s-]", " ");
+        termino = termino.replaceAll("\\b[0-9]+\\b", " ");
+        termino = termino.replaceAll("\\s+", " ");
+        termino = termino.replaceAll("-+ | -+", " ");
+        termino = termino.trim();
+
+
+        System.out.print("Consulta procesada: " "+ termino");
+        return termino;
     }
+
+    //método para procesar una consulta de varios términos
     private String procesarConsulta(String consulta){
         System.out.print("Consulta original ");
+        consulta = consulta.toLowerCase();
+        consulta = consulta.replaceAll("[^a-z0-9\\s-]", " ");
+        consulta = consulta.replaceAll("\\b[0-9]+\\b", " ");
+        consulta = consulta.replaceAll("\\s+", " ");
+        consulta = consulta.replaceAll("-+ | -+", " ");
+        consulta = consulta.trim();
 
         List<String> terminos = Arrays.asList(consulta.split(" "));
         List<String> terminosProcesados = new ArrayList<>();
 
+        System.out.print("Consulta procesada: " "+ termino"); //esto lo pongo ahora en un bucle
         return terminosProcesados;
     }
 
