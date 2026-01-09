@@ -14,6 +14,8 @@ public class Busqueda {
         }
     }
     //método para convertir txt a json
+
+
     //comienza el motor de búsqueda interactivo
     public static void start(String[] args) throws IOException{
         System.out.println("\nMotor de búsqueda:");
@@ -58,6 +60,7 @@ public class Busqueda {
         Scanner scanner = new Scanner(System.in);
         System.out.print("Introduce el término a buscar: ");
         String consulta = scanner.nextLine().trim();
+        String terminoP = procesarTermino(consulta);
     }
 
     //método para la búsqueda con operadores
@@ -72,6 +75,7 @@ public class Busqueda {
         Scanner scanner = new Scanner(System.in);
         System.out.print("Introduce la frase a buscar (ej: \"índice invertido\"): ");
         String consulta = scanner.nextLine().trim();
+        List<String> terminosP = procesarConsulta(consulta);
     }
 
     //método para procesar un sólo término
@@ -85,13 +89,25 @@ public class Busqueda {
         termino = termino.replaceAll("-+ | -+", " ");
         termino = termino.trim();
 
+        if (termino.length() < 3) return "";
+
+        try {
+            Set<String> stopwords = cargarStopwords("stopwords.txt");
+            termino = aplicarStemming(termino);
+            if (stopwords.contains(termino)) {
+                return "";
+            }
+        } catch (IOException e) {
+            System.err.println("Error al cargar stopwords: " + e.getMessage());
+        }
+
 
         System.out.print("Consulta procesada: " "+ termino");
         return termino;
     }
 
     //método para procesar una consulta de varios términos
-    private String procesarConsulta(String consulta){
+    private List<String> procesarConsulta(String consulta){
         System.out.print("Consulta original ");
         consulta = consulta.toLowerCase();
         consulta = consulta.replaceAll("[^a-z0-9\\s-]", " ");
@@ -103,9 +119,42 @@ public class Busqueda {
         List<String> terminos = Arrays.asList(consulta.split(" "));
         List<String> terminosProcesados = new ArrayList<>();
 
-        System.out.print("Consulta procesada: " "+ termino"); //esto lo pongo ahora en un bucle
+        try {
+            Set<String> stopwords = cargarStopwords("stopwords.txt");
+            for (String termino : terminos) {
+                if (termino.length() < 3) continue;
+                String raiz = aplicarStemming(termino);
+                if (!stopwords.contains(raiz)) {
+                    terminosProcesados.add(raiz);
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("Error al cargar stopwords: " + e.getMessage());
+        }
+
+        System.out.print("Consulta procesada: " );
+        for(String termino :terminosProcesados) {
+            System.out.print(termino);
+        }
         return terminosProcesados;
     }
-
+    //método para aplicar el stemming
+    private String aplicarStemming(String termino) {
+        if (termino.endsWith("s")) termino = termino.substring(0, termino.length() - 1);
+        if (termino.endsWith("ed")) termino = termino.substring(0, termino.length() - 2);
+        if (termino.endsWith("es")) termino = termino.substring(0, termino.length() - 2);
+        if (termino.endsWith("ing")) termino = termino.substring(0, termino.length() - 3);
+        if (termino.endsWith("ies")) termino = termino.substring(0, termino.length() - 3) + "y";
+        return termino;
+    }
+    // método para cargar stopwords
+    private static Set<String> cargarStopwords(String ruta) throws IOException{
+        Set<String> stopwords = new HashSet<>();
+        Files.lines(Paths.get(ruta))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .forEach(stopwords::add);
+        return stopwords;
+    }
 
 }
