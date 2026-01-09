@@ -74,4 +74,18 @@ public class Busqueda {
         String consulta = scanner.nextLine().trim();
     }
 
+    private String procesarTermino(String consulta){
+        System.out.print("Consulta original ");
+        return consulta;
+    }
+    private String procesarConsulta(String consulta){
+        System.out.print("Consulta original ");
+
+        List<String> terminos = Arrays.asList(consulta.split(" "));
+        List<String> terminosProcesados = new ArrayList<>();
+
+        return terminosProcesados;
+    }
+
+
 }
