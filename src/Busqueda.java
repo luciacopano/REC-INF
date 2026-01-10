@@ -462,14 +462,20 @@ public class Busqueda {
                 return fragmento;
             }
         }
-        return "No se encontró el término en el documento.";
+        return "No ha encontrado el término en el documento.";
     }
 
-    // método para resaltar el término en el fragmento
-    private String resaltarTermino(String fragmento, String termino) {
-        return fragmento.replaceAll(
-                "(?i)(" + Pattern.quote(termino) + ")",
-                "\u001B[31m$1\u001B[0m"
-        );
+    // método para resaltar el término en el fragmento de color lila
+    private String resaltarTermino(String fragmento, String consulta) {
+        String[] terminos = consulta.toLowerCase().split("\\s+");
+        for (String termino : terminos) {
+            // Resaltar cada término de la consulta en el fragmento en color lila
+            fragmento = fragmento.replaceAll(
+                    "(?i)(" + Pattern.quote(termino) + ")",
+                    "\u001B[35m$1\u001B[0m"
+            );
+        }
+        return fragmento;
     }
+
 }
