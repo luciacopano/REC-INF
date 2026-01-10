@@ -1,6 +1,7 @@
 import java.io.*;
 import java.util.*;
 import java.nio.file.*;
+import org.json.JSONObject;
 
 public class Busqueda {
     // estructura que contendrá la información del documento
@@ -22,7 +23,7 @@ public class Busqueda {
     public static void main(String[] args) throws IOException {
         Busqueda busqueda = new Busqueda();
         busqueda.cargarIndiceDesdeTxt("output/indice.txt", "output/longitudes.txt");
-        busqueda.start();
+        busqueda.motor();
     }
 
     // método para cargar el índice desde archivos .txt
@@ -34,6 +35,7 @@ public class Busqueda {
 
     // método para convertir indice.txt a indice_invertido.json
     private static void convertirIndiceTxtAJson(String rutaEntrada, String rutaSalida) throws IOException {
+        
         Map<String, Map<String, Object>> indiceInvertido = new HashMap<>();
         List<String> lineas = Files.readAllLines(Paths.get(rutaEntrada));
 
@@ -72,6 +74,7 @@ public class Busqueda {
 
     // método para convertir longitudes.txt a longitudes_documentos.json
     private static void convertirLongitudesTxtAJson(String rutaEntrada, String rutaSalida) throws IOException {
+        
         Map<String, Double> longitudesDocumentos = new HashMap<>();
         List<String> lineas = Files.readAllLines(Paths.get(rutaEntrada));
 
@@ -92,7 +95,7 @@ public class Busqueda {
     // método para cargar el índice y las longitudes desde archivos JSON
     public void cargarIndice(String rutaIndice, String rutaLongitudes) {
         try {
-            // cargaríndice invertido desde JSON
+            // cargar índice invertido desde JSON
             String contenidoIndice = new String(Files.readAllBytes(Paths.get(rutaIndice)));
             JSONObject indiceJson = new JSONObject(contenidoIndice);
             indiceInvertido = new HashMap<>();
@@ -104,7 +107,7 @@ public class Busqueda {
                 indiceInvertido.put(termino, datos);
             }
 
-            // cargarlongitudes de documentos desde JSON
+            // cargar longitudes de documentos desde JSON
             String contenidoLongitudes = new String(Files.readAllBytes(Paths.get(rutaLongitudes)));
             JSONObject longitudesJson = new JSONObject(contenidoLongitudes);
             longitudesDocumentos = new HashMap<>();
@@ -117,7 +120,7 @@ public class Busqueda {
     }
 
     // comienza el motor de búsqueda interactivo
-    public void start() {
+    public void motor() {
         System.out.println("\nMotor de búsqueda:");
 
         while (true) {
@@ -161,37 +164,99 @@ public class Busqueda {
         String consulta = scanner.nextLine().trim();
         String terminoP = procesarTermino(consulta);
         if (terminoP.isEmpty()) {
-            System.out.println("No se encontraron documentos relevantes.");
+            System.out.println("El término '" + consulta + "' no es un término de búsqueda válido.");
             return;
         }
-        List<String> terminos = Collections.singletonList(terminoP);
-        Set<String> documentosRelevantes = recuperarDocumentos(terminos);
-        List<ResultadoDocumento> resultados = calcularRanking(terminos, documentosRelevantes);
-        mostrarResultados(resultados, consulta);
+
+        System.out.print("Introduce el número de documentos que deseas ver: ");
+        int numDocumentos;
+        try {
+            numDocumentos = Integer.parseInt(scanner.nextLine().trim());
+        } catch (NumberFormatException e) {
+            System.out.println("Número no válido. Mostrando 5 documentos por defecto.");
+            numDocumentos = 5;
+        }
+
+        // calcular el coseno de cada documento
+        Map<String, Double> cosenos = calcularCosenosUnTermino(terminoP);
+
+        // ordenar los documentos
+        Vector<String> documentosOrdenados = ordenarDocumentos(cosenos);
+
+        // mostrar los resultados
+        mostrarResultadosCosenos(documentosOrdenados, cosenos, consulta, numDocumentos);
     }
 
     // método para la búsqueda con operadores
     private void busquedaOperadores() {
-        System.out.print("Introduce la consulta con operadores (and/or): ");
+        System.out.print("Introduce el tipo de consulta que desea realizar (AND/OR): ");
+        String tipoConsulta = scanner.nextLine().trim().toUpperCase();
+        while (!tipoConsulta.equals("AND") && !tipoConsulta.equals("OR")) {
+            System.out.print("Tipo de consulta no válido. Introduce AND o OR: ");
+            tipoConsulta = scanner.nextLine().trim().toUpperCase();
+        }
+
+        System.out.print("Introduce los términos de la consulta separados por espacios: ");
         String consulta = scanner.nextLine().trim();
-        Map<String, List<String>> consultaAnalizada = analizarConsultaConOperadores(consulta);
-        Set<String> documentosRelevantes = recuperarDocumentosConOperadores(consultaAnalizada);
-        List<String> todosTerminos = new ArrayList<>();
-        todosTerminos.addAll(consultaAnalizada.get("AND"));
-        todosTerminos.addAll(consultaAnalizada.get("OR"));
-        List<ResultadoDocumento> resultados = calcularRanking(todosTerminos, documentosRelevantes);
-        mostrarResultados(resultados, consulta);
+        String[] terminos = consulta.split(" ");
+
+        System.out.print("Introduce el número de documentos que deseas ver: ");
+        int numDocumentos;
+        try {
+            numDocumentos = Integer.parseInt(scanner.nextLine().trim());
+        } catch (NumberFormatException e) {
+            System.out.println("Número no válido. Mostrando 5 documentos por defecto.");
+            numDocumentos = 5;
+        }
+
+        // Calcular el coseno de cada documento
+        Map<String, Double> cosenosConsulta = calcularCosenosMultiplesTerminos(terminos, tipoConsulta);
+
+        if (cosenosConsulta.isEmpty()) {
+            System.out.println("No se encontraron documentos relevantes.");
+            return;
+        }
+
+        // Ordenar los documentos
+        Vector<String> documentosOrdenados = ordenarDocumentos(cosenosConsulta);
+
+        // Mostrar los resultados
+        mostrarResultadosCosenos(documentosOrdenados, cosenosConsulta, consulta, numDocumentos);
     }
 
     // método para la búsqueda de una frase
     private void busquedaFrase() {
-        System.out.print("Introduce la frase a buscar (ej: \"índice invertido\"): ");
+        System.out.print("Introduce la frase a buscar: ");
         String consulta = scanner.nextLine().trim();
-        String[] terminos = consulta.toLowerCase().split("\\s+");
+
         List<String> terminosProcesados = procesarConsulta(consulta);
-        Set<String> documentosRelevantes = recuperarDocumentosFrase(terminos);
-        List<ResultadoDocumento> resultados = calcularRanking(terminosProcesados, documentosRelevantes);
-        mostrarResultados(resultados, consulta);
+        if (terminosProcesados.isEmpty()) {
+            System.out.println("La frase '" + consulta + "' no contiene términos de búsqueda válidos.");
+            return;
+        }
+
+        System.out.print("Introduce el número de documentos que deseas ver: ");
+        int numDocumentos;
+        try {
+            numDocumentos = Integer.parseInt(scanner.nextLine().trim());
+        } catch (NumberFormatException e) {
+            System.out.println("Número no válido. Mostrando 5 documentos por defecto.");
+            numDocumentos = 5;
+        }
+
+        // Calcular el coseno de cada documento
+        Map<String, Double> cosenosConsulta = calcularCosenosFrase(terminos);
+
+        if (cosenosConsulta.isEmpty()) {
+            System.out.println("No se encontraron documentos relevantes.");
+            return;
+        }
+
+        // Ordenar los documentos
+        Vector<String> documentosOrdenados = ordenarDocumentos(cosenosConsulta);
+
+        // Mostrar los resultados
+        mostrarResultadosCosenos(documentosOrdenados, cosenosConsulta, consulta, numDocumentos);
     }
 
     // método para procesar un solo término
@@ -388,60 +453,185 @@ public class Busqueda {
         return resultado;
     }
 
-    // método para calcular el ranking de los documentos
-    private List<ResultadoDocumento> calcularRanking(List<String> terminos, Set<String> documentosRelevantes) {
-        List<ResultadoDocumento> resultados = new ArrayList<>();
+    // método para calcular el coseno de un término
+    private Map<String, Double> calcularCosenosUnTermino(String termino) {
+        Map<String, Double> cosenos = new HashMap<>();
 
-        if (indiceInvertido == null || documentosRelevantes == null || longitudesDocumentos == null) {
-            System.out.println("Error: Datos no cargados correctamente.");
-            return resultados;
+        if (!indiceInvertido.containsKey(termino)) {
+            return cosenos;
         }
 
-        for (String documento : documentosRelevantes) {
-            double puntuacion = 0.0;
-            for (String termino : terminos) {
-                if (indiceInvertido.containsKey(termino)) {
-                    Map<String, Double> pesosDocumentos = (Map<String, Double>) indiceInvertido.get(termino).get("pesosDocumentos");
-                    if (pesosDocumentos.containsKey(documento)) {
-                        puntuacion += pesosDocumentos.get(documento);
+        double idf = (double) indiceInvertido.get(termino).get("idf");
+        Map<String, Double> pesosDocumentos = (Map<String, Double>) indiceInvertido.get(termino).get("pesosDocumentos");
+
+        for (String documento : pesosDocumentos.keySet()) {
+            double peso = pesosDocumentos.get(documento);
+            double coseno = peso / longitudesDocumentos.get(documento); // Simplificado, ya que idf se cancela
+            cosenos.put(documento, coseno);
+        }
+
+        return cosenos;
+    }
+
+    // método para calcular el coseno de múltiples términos
+    private Map<String, Double> calcularCosenosMultiplesTerminos(String[] terminos, String tipoConsulta) {
+        Map<String, Double> cosenosConsulta = new HashMap<>();
+        boolean noContieneTodos = false;
+
+        // Calcular la consulta normalizada
+        double consultaNormalizada = 0;
+        for (String terminoConsulta : terminos) {
+            terminoConsulta = procesarTermino(terminoConsulta);
+            if (indiceInvertido.containsKey(terminoConsulta)) {
+                double idf = (double) indiceInvertido.get(terminoConsulta).get("idf");
+                consultaNormalizada += Math.pow(idf, 2);
+            } else {
+                noContieneTodos = true;
+            }
+        }
+        consultaNormalizada = Math.sqrt(consultaNormalizada);
+
+        // Calcular el coseno de cada documento
+        for (String terminoConsulta : terminos) {
+            terminoConsulta = procesarTermino(terminoConsulta);
+            if (indiceInvertido.containsKey(terminoConsulta)) {
+                double idf = (double) indiceInvertido.get(terminoConsulta).get("idf");
+                Map<String, Double> pesosDocumentos = (Map<String, Double>) indiceInvertido.get(terminoConsulta).get("pesosDocumentos");
+                for (String documento : pesosDocumentos.keySet()) {
+                    double peso = pesosDocumentos.get(documento);
+                    if (!cosenosConsulta.containsKey(documento)) {
+                        cosenosConsulta.put(documento, 0.0);
+                    }
+                    cosenosConsulta.put(documento, cosenosConsulta.get(documento) + peso * idf);
+                }
+            }
+        }
+
+        // Normalizar los cosenos
+        for (String documento : cosenosConsulta.keySet()) {
+            double valor = cosenosConsulta.get(documento) / (longitudesDocumentos.get(documento) * consultaNormalizada);
+            cosenosConsulta.put(documento, valor);
+        }
+
+        // Si la consulta es AND y no contiene todos los términos, mostrar mensaje
+        if (tipoConsulta.equals("AND") && noContieneTodos) {
+            System.out.println("No se encontraron todos los términos en los documentos.");
+            return new HashMap<>();
+        }
+
+        // Si es una consulta AND, eliminar los documentos que no contengan todos los términos
+        if (tipoConsulta.equals("AND")) {
+            List<String> toRemove = new ArrayList<>();
+            for (String documento : cosenosConsulta.keySet()) {
+                for (String terminoConsulta : terminos) {
+                    terminoConsulta = procesarTermino(terminoConsulta);
+                    if (!indiceInvertido.containsKey(terminoConsulta) ||
+                            !((Map<String, Double>) indiceInvertido.get(terminoConsulta).get("pesosDocumentos")).containsKey(documento)) {
+                        toRemove.add(documento);
+                        break;
                     }
                 }
             }
-            if (longitudesDocumentos.containsKey(documento)) {
-                puntuacion = puntuacion / longitudesDocumentos.get(documento);
+            for (String documento : toRemove) {
+                cosenosConsulta.remove(documento);
             }
-            resultados.add(new ResultadoDocumento(documento, puntuacion));
         }
 
-        resultados.sort((a, b) -> Double.compare(b.puntuacion, a.puntuacion));
-        return resultados;
+        return cosenosConsulta;
     }
 
-    // método para mostrar resultados con formato y snippets
-    private void mostrarResultados(List<ResultadoDocumento> resultados, String consulta) {
-        if (resultados.isEmpty()) {
-            System.out.println("No se encontraron documentos relevantes.");
-            return;
-        }
+    // método para calcular el coseno de una frase
+    private Map<String, Double> calcularCosenosFrase(String[] terminos) {
+        // Primero recuperamos los documentos que contienen la frase
+        Set<String> documentosRelevantes = recuperarDocumentosFrase(terminos);
 
-        System.out.println("\n=== RESULTADOS PARA: \"" + consulta + "\" ===");
-        for (int i = 0; i < Math.min(resultados.size(), 5); i++) {
-            ResultadoDocumento documento = resultados.get(i);
-            System.out.printf(
-                    "%d. %s (Puntuación: %.4f)%n",
-                    i + 1,
-                    documento.nombreDocumento,
-                    documento.puntuacion
-            );
+        // Calculamos el coseno para estos documentos
+        Map<String, Double> cosenosConsulta = new HashMap<>();
 
-            try {
-                String contenido = cargarContenidoDocumento(documento.nombreDocumento);
-                String fragmento = obtenerFragmento(contenido, consulta);
-                System.out.println("   Fragmento: " + resaltarTermino(fragmento, consulta));
-            } catch (IOException e) {
-                System.out.println("   Fragmento: No disponible");
+        // calcular la consulta normalizada
+        double consultaNormalizada = 0;
+        for (String terminoConsulta : terminos) {
+            terminoConsulta = procesarTermino(terminoConsulta);
+            if (indiceInvertido.containsKey(terminoConsulta)) {
+                double idf = (double) indiceInvertido.get(terminoConsulta).get("idf");
+                consultaNormalizada += Math.pow(idf, 2);
             }
         }
+        consultaNormalizada = Math.sqrt(consultaNormalizada);
+
+        // calcular el coseno de cada documento
+        for (String terminoConsulta : terminos) {
+            terminoConsulta = procesarTermino(terminoConsulta);
+            if (indiceInvertido.containsKey(terminoConsulta)) {
+                double idf = (double) indiceInvertido.get(terminoConsulta).get("idf");
+                Map<String, Double> pesosDocumentos = (Map<String, Double>) indiceInvertido.get(terminoConsulta).get("pesosDocumentos");
+                for (String documento : documentosRelevantes) {
+                    if (pesosDocumentos.containsKey(documento)) {
+                        double peso = pesosDocumentos.get(documento);
+                        if (!cosenosConsulta.containsKey(documento)) {
+                            cosenosConsulta.put(documento, 0.0);
+                        }
+                        cosenosConsulta.put(documento, cosenosConsulta.get(documento) + peso * idf);
+                    }
+                }
+            }
+        }
+
+        // normalizar los cosenos
+        for (String documento : cosenosConsulta.keySet()) {
+            double valor = cosenosConsulta.get(documento) / (longitudesDocumentos.get(documento) * consultaNormalizada);
+            cosenosConsulta.put(documento, valor);
+        }
+
+        return cosenosConsulta;
+    }
+
+    // método para ordenar documentos según su puntuación
+    private Vector<String> ordenarDocumentos(Map<String, Double> cosenos) {
+        Vector<String> documentosOrdenados = new Vector<>();
+        for (String documento : cosenos.keySet()) {
+            int i = 0;
+            while (i < documentosOrdenados.size() && cosenos.get(documentosOrdenados.get(i)) > cosenos.get(documento)) {
+                i++;
+            }
+            documentosOrdenados.add(i, documento);
+        }
+        return documentosOrdenados;
+    }
+
+    // método para obtener un fragmento del documento que contenga el término de búsqueda
+    private String obtenerFragmento(String contenido, String consulta) {
+        String[] terminos = consulta.toLowerCase().split("\\s+");
+        String[] palabras = contenido.split("\\s+"); // Dividir el contenido en palabras
+
+        for (String termino : terminos) {
+            // Buscar el término en el contenido
+            for (int i = 0; i < palabras.length; i++) {
+                if (palabras[i].toLowerCase().contains(termino)) {
+                    // calcular el rango de palabras a mostrar (5 antes y 5 después)
+                    int inicio = Math.max(0, i - 5);
+                    int fin = Math.min(palabras.length, i + 6); // +6 para incluir 5 palabras después
+
+                    // construir el fragmento
+                    StringBuilder fragmentoBuilder = new StringBuilder();
+                    for (int j = inicio; j < fin; j++) {
+                        if (j > inicio) {
+                            fragmentoBuilder.append(" ");
+                        }
+                        fragmentoBuilder.append(palabras[j]);
+                    }
+                    String fragmento = fragmentoBuilder.toString();
+
+                    // Añadir "..." si el fragmento no empieza al inicio del documento
+                    if (inicio > 0) fragmento = "..." + fragmento;
+                    // Añadir "..." si el fragmento no termina al final del documento
+                    if (fin < palabras.length) fragmento = fragmento + "...";
+
+                    return fragmento;
+                }
+            }
+        }
+        return "No se encontró el término en el documento.";
     }
 
     // método para cargar el contenido de un documento
@@ -462,14 +652,14 @@ public class Busqueda {
                 return fragmento;
             }
         }
-        return "No ha encontrado el término en el documento.";
+        return "No se encontró el término en el documento.";
     }
 
     // método para resaltar el término en el fragmento de color lila
     private String resaltarTermino(String fragmento, String consulta) {
         String[] terminos = consulta.toLowerCase().split("\\s+");
         for (String termino : terminos) {
-            // Resaltar cada término de la consulta en el fragmento en color lila
+            // resaltar cada término de la consulta en el fragmento en color lila :)
             fragmento = fragmento.replaceAll(
                     "(?i)(" + Pattern.quote(termino) + ")",
                     "\u001B[35m$1\u001B[0m"
@@ -477,5 +667,4 @@ public class Busqueda {
         }
         return fragmento;
     }
-
 }
