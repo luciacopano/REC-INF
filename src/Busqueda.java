@@ -1,7 +1,7 @@
 import java.io.*;
 import java.util.*;
 import java.nio.file.*;
-import org.json.JSONObject;
+import java.util.regex.Pattern;
 
 public class Busqueda {
     // estructura que contendrá la información del documento
@@ -22,98 +22,65 @@ public class Busqueda {
     // método principal para iniciar el motor de búsqueda
     public static void main(String[] args) throws IOException {
         Busqueda busqueda = new Busqueda();
-        busqueda.cargarIndiceDesdeTxt("output/indice.txt", "output/longitudes.txt");
+        busqueda.cargarIndiceDesdeTxt("output/index.txt", "output/lengths.txt");
         busqueda.motor();
     }
 
     // método para cargar el índice desde archivos .txt
     public void cargarIndiceDesdeTxt(String rutaIndiceTxt, String rutaLongitudesTxt) throws IOException {
-        convertirIndiceTxtAJson(rutaIndiceTxt, "src/main/resources/indice_invertido.json");
-        convertirLongitudesTxtAJson(rutaLongitudesTxt, "src/main/resources/longitudes_documentos.json");
-        cargarIndice("src/main/resources/indice_invertido.json", "src/main/resources/longitudes_documentos.json");
+        cargarIndice(rutaIndiceTxt, rutaLongitudesTxt);
     }
 
-    // método para convertir indice.txt a indice_invertido.json
-    private static void convertirIndiceTxtAJson(String rutaEntrada, String rutaSalida) throws IOException {
-        
-        Map<String, Map<String, Object>> indiceInvertido = new HashMap<>();
-        List<String> lineas = Files.readAllLines(Paths.get(rutaEntrada));
-
-        for (String linea : lineas) {
-            String[] partes = linea.split("\\|");
-            if (partes.length < 2) continue;
-
-            String termino = partes[0].trim();
-            double idf = Double.parseDouble(partes[1].trim());
-
-            Map<String, Object> datosTermino = new HashMap<>();
-            datosTermino.put("idf", idf);
-
-            Map<String, Double> pesosDocumentos = new HashMap<>();
-            if (partes.length > 2) {
-                String pesosDocumentosStr = partes[2].trim();
-                String[] entradasDocumentos = pesosDocumentosStr.split("\\)\\s*\\(|[()]");
-                for (String entrada : entradasDocumentos) {
-                    if (entrada.trim().isEmpty()) continue;
-                    String[] pesoDocumento = entrada.trim().split("\\s+");
-                    if (pesoDocumento.length == 2) {
-                        String idDocumento = pesoDocumento[0];
-                        double peso = Double.parseDouble(pesoDocumento[1]);
-                        pesosDocumentos.put(idDocumento, peso);
-                    }
-                }
-            }
-            datosTermino.put("pesosDocumentos", pesosDocumentos);
-            indiceInvertido.put(termino, datosTermino);
-        }
-
-        // guardar como JSON
-        JSONObject indiceJson = new JSONObject(indiceInvertido);
-        Files.write(Paths.get(rutaSalida), indiceJson.toString(2).getBytes());
-    }
-
-    // método para convertir longitudes.txt a longitudes_documentos.json
-    private static void convertirLongitudesTxtAJson(String rutaEntrada, String rutaSalida) throws IOException {
-        
-        Map<String, Double> longitudesDocumentos = new HashMap<>();
-        List<String> lineas = Files.readAllLines(Paths.get(rutaEntrada));
-
-        for (String linea : lineas) {
-            String[] partes = linea.trim().split("\\s+");
-            if (partes.length == 2) {
-                String idDocumento = partes[0];
-                double longitud = Double.parseDouble(partes[1]);
-                longitudesDocumentos.put(idDocumento, longitud);
-            }
-        }
-
-        // guardar como JSON
-        JSONObject longitudesJson = new JSONObject(longitudesDocumentos);
-        Files.write(Paths.get(rutaSalida), longitudesJson.toString(2).getBytes());
-    }
-
-    // método para cargar el índice y las longitudes desde archivos JSON
+    // método para cargar el índice y las longitudes desde archivos TXT
     public void cargarIndice(String rutaIndice, String rutaLongitudes) {
         try {
-            // cargar índice invertido desde JSON
-            String contenidoIndice = new String(Files.readAllBytes(Paths.get(rutaIndice)));
-            JSONObject indiceJson = new JSONObject(contenidoIndice);
+            // cargar índice invertido desde TXT
             indiceInvertido = new HashMap<>();
-            for (String termino : indiceJson.keySet()) {
-                JSONObject datosTermino = indiceJson.getJSONObject(termino);
-                Map<String, Object> datos = new HashMap<>();
-                datos.put("idf", datosTermino.getDouble("idf"));
-                datos.put("pesosDocumentos", datosTermino.getJSONObject("docWeights").toMap());
-                indiceInvertido.put(termino, datos);
+            List<String> lineasIndice = Files.readAllLines(Paths.get(rutaIndice));
+            
+            for (String linea : lineasIndice) {
+                String[] partes = linea.split("\\|");
+                if (partes.length < 2) continue;
+                
+                String termino = partes[0].trim();
+                double idf = Double.parseDouble(partes[1].trim().replace(",", "."));
+                
+                Map<String, Object> datosTermino = new HashMap<>();
+                datosTermino.put("idf", idf);
+                
+                Map<String, Double> pesosDocumentos = new HashMap<>();
+                if (partes.length > 2) {
+                    String pesosDocumentosStr = partes[2].trim();
+                    // Parsear formato: (doc1 peso1) (doc2 peso2) ...
+                    String[] entradasDocumentos = pesosDocumentosStr.split("\\)\\s*\\(|[()]");
+                    for (String entrada : entradasDocumentos) {
+                        if (entrada.trim().isEmpty()) continue;
+                        String[] pesoDocumento = entrada.trim().split("\\s+");
+                        if (pesoDocumento.length == 2) {
+                            String idDocumento = pesoDocumento[0];
+                            double peso = Double.parseDouble(pesoDocumento[1].replace(",", "."));
+                            pesosDocumentos.put(idDocumento, peso);
+                        }
+                    }
+                }
+                datosTermino.put("pesosDocumentos", pesosDocumentos);
+                indiceInvertido.put(termino, datosTermino);
             }
-
-            // cargar longitudes de documentos desde JSON
-            String contenidoLongitudes = new String(Files.readAllBytes(Paths.get(rutaLongitudes)));
-            JSONObject longitudesJson = new JSONObject(contenidoLongitudes);
+            
+            // cargar longitudes de documentos desde TXT
             longitudesDocumentos = new HashMap<>();
-            for (String documento : longitudesJson.keySet()) {
-                longitudesDocumentos.put(documento, longitudesJson.getDouble(documento));
+            List<String> lineasLongitudes = Files.readAllLines(Paths.get(rutaLongitudes));
+            
+            for (String linea : lineasLongitudes) {
+                String[] partes = linea.trim().split("\\s+");
+                if (partes.length == 2) {
+                    String idDocumento = partes[0];
+                    double longitud = Double.parseDouble(partes[1].replace(",", "."));
+                    longitudesDocumentos.put(idDocumento, longitud);
+                }
             }
+            
+            System.out.println("Índice cargado exitosamente.");
         } catch (Exception e) {
             System.err.println("Error al cargar el índice: " + e.getMessage());
         }
@@ -245,7 +212,8 @@ public class Busqueda {
         }
 
         // Calcular el coseno de cada documento
-        Map<String, Double> cosenosConsulta = calcularCosenosFrase(terminos);
+        String[] terminosArray = terminosProcesados.toArray(new String[0]);
+        Map<String, Double> cosenosConsulta = calcularCosenosFrase(terminosArray);
 
         if (cosenosConsulta.isEmpty()) {
             System.out.println("No se encontraron documentos relevantes.");
@@ -639,22 +607,6 @@ public class Busqueda {
         return new String(Files.readAllBytes(Paths.get("corpus/" + rutaDocumento)));
     }
 
-    // método para obtener un fragmento del documento que contenga el término de búsqueda
-    private String obtenerFragmento(String contenido, String consulta) {
-        String[] terminos = consulta.toLowerCase().split("\\s+");
-        for (String termino : terminos) {
-            int indice = contenido.toLowerCase().indexOf(termino);
-            if (indice != -1) {
-                int inicio = Math.max(0, indice - 30);
-                int fin = Math.min(contenido.length(), indice + termino.length() + 30);
-                String fragmento = contenido.substring(inicio, fin).trim();
-                if (inicio > 0) fragmento = "..." + fragmento;
-                return fragmento;
-            }
-        }
-        return "No se encontró el término en el documento.";
-    }
-
     // método para resaltar el término en el fragmento de color lila
     private String resaltarTermino(String fragmento, String consulta) {
         String[] terminos = consulta.toLowerCase().split("\\s+");
@@ -667,4 +619,31 @@ public class Busqueda {
         }
         return fragmento;
     }
+
+    // método para mostrar resultados con cosenos
+    private void mostrarResultadosCosenos(Vector<String> documentosOrdenados, Map<String, Double> cosenos, String consulta, int numDocumentos) {
+        System.out.println("\n=== RESULTADOS DE LA BÚSQUEDA ===");
+        System.out.println("Consulta: " + consulta);
+        System.out.println("Documentos encontrados: " + documentosOrdenados.size());
+        
+        int contador = 0;
+        for (String documento : documentosOrdenados) {
+            if (contador >= numDocumentos) break;
+            
+            double coseno = cosenos.get(documento);
+            System.out.println("\n" + (contador + 1) + ". " + documento + " (puntuación: " + String.format("%.4f", coseno) + ")");
+            
+            try {
+                String contenido = cargarContenidoDocumento(documento);
+                String fragmento = obtenerFragmento(contenido, consulta);
+                String fragmentoResaltado = resaltarTermino(fragmento, consulta);
+                System.out.println("   Fragmento: " + fragmentoResaltado);
+            } catch (IOException e) {
+                System.out.println("   Error al cargar el documento.");
+            }
+            
+            contador++;
+        }
+    }
 }
+
