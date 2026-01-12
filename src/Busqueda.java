@@ -1,9 +1,8 @@
 import java.io.*;
-import java.util.*;
 import java.nio.file.*;
+import java.util.*;
 import java.util.regex.Pattern;
-
-public class Busqueda {
+public class Busqueda{
     // estructura que contendrá la información del documento
     private static class ResultadoDocumento {
         String nombreDocumento;
@@ -294,11 +293,9 @@ public class Busqueda {
 
     // método para aplicar el stemming
     private String aplicarStemming(String termino) {
-        if (termino.endsWith("s")) termino = termino.substring(0, termino.length() - 1);
+        // Mantener plurales distintos del singular: NO eliminar 's', 'es' ni 'ies'.
         if (termino.endsWith("ed")) termino = termino.substring(0, termino.length() - 2);
-        if (termino.endsWith("es")) termino = termino.substring(0, termino.length() - 2);
         if (termino.endsWith("ing")) termino = termino.substring(0, termino.length() - 3);
-        if (termino.endsWith("ies")) termino = termino.substring(0, termino.length() - 3) + "y";
         return termino;
     }
 
@@ -446,10 +443,20 @@ public class Busqueda {
         Map<String, Double> cosenosConsulta = new HashMap<>();
         boolean noContieneTodos = false;
 
+        // Preprocesar términos una sola vez para evitar mensajes duplicados y reutilizar resultados
+        List<String> terminosProcesados = new ArrayList<>();
+        for (String terminoOriginal : terminos) {
+            String termino = procesarTermino(terminoOriginal);
+            if (termino.isEmpty()) {
+                noContieneTodos = true; // término inválido/stopword se considera ausente en AND
+                continue;
+            }
+            terminosProcesados.add(termino);
+        }
+
         // Calcular la consulta normalizada
         double consultaNormalizada = 0;
-        for (String terminoConsulta : terminos) {
-            terminoConsulta = procesarTermino(terminoConsulta);
+        for (String terminoConsulta : terminosProcesados) {
             if (indiceInvertido.containsKey(terminoConsulta)) {
                 double idf = (double) indiceInvertido.get(terminoConsulta).get("idf");
                 consultaNormalizada += Math.pow(idf, 2);
@@ -459,19 +466,21 @@ public class Busqueda {
         }
         consultaNormalizada = Math.sqrt(consultaNormalizada);
 
+        // Evitar división por cero si no quedó ningún término válido en la consulta
+        if (consultaNormalizada == 0) {
+            return new HashMap<>();
+        }
+
         // Calcular el coseno de cada documento
-        for (String terminoConsulta : terminos) {
-            terminoConsulta = procesarTermino(terminoConsulta);
-            if (indiceInvertido.containsKey(terminoConsulta)) {
-                double idf = (double) indiceInvertido.get(terminoConsulta).get("idf");
-                Map<String, Double> pesosDocumentos = (Map<String, Double>) indiceInvertido.get(terminoConsulta).get("pesosDocumentos");
-                for (String documento : pesosDocumentos.keySet()) {
-                    double peso = pesosDocumentos.get(documento);
-                    if (!cosenosConsulta.containsKey(documento)) {
-                        cosenosConsulta.put(documento, 0.0);
-                    }
-                    cosenosConsulta.put(documento, cosenosConsulta.get(documento) + peso * idf);
-                }
+        for (String terminoConsulta : terminosProcesados) {
+            if (!indiceInvertido.containsKey(terminoConsulta)) {
+                continue;
+            }
+            double idf = (double) indiceInvertido.get(terminoConsulta).get("idf");
+            Map<String, Double> pesosDocumentos = (Map<String, Double>) indiceInvertido.get(terminoConsulta).get("pesosDocumentos");
+            for (String documento : pesosDocumentos.keySet()) {
+                double peso = pesosDocumentos.get(documento);
+                cosenosConsulta.put(documento, cosenosConsulta.getOrDefault(documento, 0.0) + peso * idf);
             }
         }
 
@@ -491,8 +500,7 @@ public class Busqueda {
         if (tipoConsulta.equals("AND")) {
             List<String> toRemove = new ArrayList<>();
             for (String documento : cosenosConsulta.keySet()) {
-                for (String terminoConsulta : terminos) {
-                    terminoConsulta = procesarTermino(terminoConsulta);
+                for (String terminoConsulta : terminosProcesados) {
                     if (!indiceInvertido.containsKey(terminoConsulta) ||
                             !((Map<String, Double>) indiceInvertido.get(terminoConsulta).get("pesosDocumentos")).containsKey(documento)) {
                         toRemove.add(documento);
@@ -646,4 +654,3 @@ public class Busqueda {
         }
     }
 }
-
