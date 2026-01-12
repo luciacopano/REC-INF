@@ -4,16 +4,6 @@ import java.nio.file.*;
 import org.json.JSONObject;
 
 public class Busqueda {
-    // estructura que contendrá la información del documento
-    private static class ResultadoDocumento {
-        String nombreDocumento;
-        double puntuacion;
-
-        ResultadoDocumento(String nombreDocumento, double puntuacion) {
-            this.nombreDocumento = nombreDocumento;
-            this.puntuacion = puntuacion;
-        }
-    }
 
     private Scanner scanner = new Scanner(System.in);
     private Map<String, Map<String, Object>> indiceInvertido;
@@ -597,41 +587,6 @@ public class Busqueda {
             documentosOrdenados.add(i, documento);
         }
         return documentosOrdenados;
-    }
-
-    // método para obtener un fragmento del documento que contenga el término de búsqueda
-    private String obtenerFragmento(String contenido, String consulta) {
-        String[] terminos = consulta.toLowerCase().split("\\s+");
-        String[] palabras = contenido.split("\\s+"); // Dividir el contenido en palabras
-
-        for (String termino : terminos) {
-            // Buscar el término en el contenido
-            for (int i = 0; i < palabras.length; i++) {
-                if (palabras[i].toLowerCase().contains(termino)) {
-                    // calcular el rango de palabras a mostrar (5 antes y 5 después)
-                    int inicio = Math.max(0, i - 5);
-                    int fin = Math.min(palabras.length, i + 6); // +6 para incluir 5 palabras después
-
-                    // construir el fragmento
-                    StringBuilder fragmentoBuilder = new StringBuilder();
-                    for (int j = inicio; j < fin; j++) {
-                        if (j > inicio) {
-                            fragmentoBuilder.append(" ");
-                        }
-                        fragmentoBuilder.append(palabras[j]);
-                    }
-                    String fragmento = fragmentoBuilder.toString();
-
-                    // Añadir "..." si el fragmento no empieza al inicio del documento
-                    if (inicio > 0) fragmento = "..." + fragmento;
-                    // Añadir "..." si el fragmento no termina al final del documento
-                    if (fin < palabras.length) fragmento = fragmento + "...";
-
-                    return fragmento;
-                }
-            }
-        }
-        return "No se encontró el término en el documento.";
     }
 
     // método para cargar el contenido de un documento
