@@ -238,6 +238,9 @@ public class Busqueda {
         termino = termino.replaceAll("-+ | -+", " ");
         termino = termino.trim();
 
+        // Guardamos la versión legible para mostrarla completa al usuario
+        String terminoVisible = termino;
+
         if (termino.length() < 3) {
             System.out.println("Consulta procesada: (vacía, término demasiado corto)");
             return "";
@@ -254,7 +257,8 @@ public class Busqueda {
             System.err.println("Error al cargar stopwords: " + e.getMessage());
         }
 
-        System.out.println("Consulta procesada: " + termino);
+        // Mostramos la forma completa, no la stemmizada, para que no aparezca cortada
+        System.out.println("Consulta procesada: " + terminoVisible);
         return termino;
     }
 
@@ -270,13 +274,16 @@ public class Busqueda {
 
         List<String> terminos = Arrays.asList(consulta.split(" "));
         List<String> terminosProcesados = new ArrayList<>();
+        List<String> terminosVisibles = new ArrayList<>();
 
         try {
             Set<String> stopwords = cargarStopwords("stopwords.txt");
             for (String termino : terminos) {
                 if (termino.length() < 3) continue;
+                String terminoVisible = termino;
                 String raiz = aplicarStemming(termino);
                 if (!stopwords.contains(raiz)) {
+                    terminosVisibles.add(terminoVisible);
                     terminosProcesados.add(raiz);
                 }
             }
@@ -285,7 +292,7 @@ public class Busqueda {
         }
 
         System.out.print("Consulta procesada: ");
-        for (String termino : terminosProcesados) {
+        for (String termino : terminosVisibles) {
             System.out.print(termino + " ");
         }
         System.out.println();
